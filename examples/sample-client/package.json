@@ -1,0 +1,33 @@
+{
+  "name": "sample-client",
+  "private": true,
+  "version": "0.0.0",
+  "type": "module",
+  "scripts": {
+    "dev": "bunx --bun vite",
+    "build": "bunx --bun vite build",
+    "preview": "bunx --bun vite preview",
+    "check": "bunx --bun svelte-check --tsconfig ./tsconfig.app.json && bunx --bun tsc -p tsconfig.node.json"
+  },
+  "devDependencies": {
+    "@sveltejs/vite-plugin-svelte": "^6.2.1",
+    "@tsconfig/svelte": "^5.0.5",
+    "@types/node": "^24.6.0",
+    "svelte": "^5.39.6",
+    "svelte-check": "^4.3.2",
+    "typescript": "~5.9.3",
+    "vite": "^7.1.7"
+  },
+  "dependencies": {
+    "@hocuspocus/provider": "^3.2.4",
+    "@tiptap/core": "^3.6.5",
+    "@tiptap/extension-bubble-menu": "^3.6.5",
+    "@tiptap/extension-collaboration": "^3.6.5",
+    "@tiptap/extension-collaboration-caret": "^3.6.5",
+    "@tiptap/pm": "^3.6.5",
+    "@tiptap/starter-kit": "^3.6.5",
+    "@tiptap/y-tiptap": "^3.0.0",
+    "y-websocket": "^3.0.0",
+    "yjs": "^13.6.27"
+  }
+}
