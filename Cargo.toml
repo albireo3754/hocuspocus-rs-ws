@@ -2,6 +2,7 @@
 [workspace]
 resolver = "2"
 members = ["examples/example", "hocuspocus-rs-ws"]
+default-members = ["examples/example"]
 
 [profile.dev]
 opt-level = 0

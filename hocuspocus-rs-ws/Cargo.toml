@@ -1,8 +1,7 @@
 [package]
 name = "hocuspocus-rs-ws"
-version = "0.0.1"
+version = "0.1.0"
 edition = "2024"
-description = "Sans-IO core of the hocuspocus-rs-ws CRDT server."
 license = "MIT"
 repository = "https://github.com/alibreo3754/hocuspocus-rs-ws"
 

@@ -15,6 +15,24 @@ offer a fully transport-agnostic or Sans-IO abstraction.
 Built atop Tokio and Rust's async/await ecosystem, the server is designed to
 scale across multi-core, multi-threaded environments.
 
+## Local Quickstart
+
+Run the workspace example server alongside the Svelte demo client to test collaborative editing locally.
+
+```bash
+cargo run
+```
+
+The server listens on `http://0.0.0.0:3000`. In another terminal, launch the sample client:
+
+```bash
+cd examples/sample-client
+bun install   # first run
+bun run dev
+```
+
+Open the printed Vite dev URL (defaults to `http://localhost:5173`) and the client will connect to the local server automatically.
+
 ## Status
 
 - Targets the baseline WebSocket feature set of Hocuspocus 3.2.4.
