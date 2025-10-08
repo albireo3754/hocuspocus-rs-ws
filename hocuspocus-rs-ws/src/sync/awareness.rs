@@ -10,9 +10,6 @@ use yrs::{Doc, Observer, Subscription};
 
 const NULL_STR: &str = "null";
 
-#[cfg(not(feature = "sync"))]
-type AwarenessObserver = Observer<Arc<dyn Fn(&Awareness, &Event) + 'static>>;
-#[cfg(feature = "sync")]
 type AwarenessObserver = Observer<Arc<dyn Fn(&Awareness, &Event) + Send + Sync + 'static>>;
 
 /// The Awareness class implements a simple shared state protocol that can be used for non-persistent
@@ -48,20 +45,9 @@ impl Awareness {
     }
 
     /// Returns a channel receiver for an incoming awareness events. This channel can be cloned.
-    #[cfg(feature = "sync")]
     pub fn on_update<F>(&mut self, f: F) -> Subscription
     where
         F: Fn(&Awareness, &Event) + Send + Sync + 'static,
-    {
-        let eh = self.on_update.get_or_insert_with(Observer::default);
-        eh.subscribe(Arc::new(f))
-    }
-
-    /// Returns a channel receiver for an incoming awareness events. This channel can be cloned.
-    #[cfg(not(feature = "sync"))]
-    pub fn on_update<F>(&mut self, f: F) -> Subscription
-    where
-        F: Fn(&Awareness, &Event) + 'static,
     {
         let eh = self.on_update.get_or_insert_with(Observer::default);
         eh.subscribe(Arc::new(f))

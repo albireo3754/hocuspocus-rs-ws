@@ -4,13 +4,16 @@ version = "0.1.0"
 edition = "2024"
 license = "MIT"
 repository = "https://github.com/alibreo3754/hocuspocus-rs-ws"
+description = "Async WebSocket server implementing the Hocuspocus collaborative editing protocol in Rust."
+categories = ["ws", "crdt"]
+keywords = ["hocuspocus", "yjs", "websocket", "collaboration", "crdt"]
 
 [features]
 default = ["sync"]
 sync = ["yrs/sync"]
-single-threaded = []
 
 [dependencies]
+
 #async
 tokio = { version = "1.45.0", features = ["full", "tracing"] }
 futures = "0.3"
