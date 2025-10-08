@@ -1,7 +1,7 @@
 # my_workspace/Cargo.toml
 [workspace]
 resolver = "2"
-members = ["example", "hocuspocus-rs-ws"]
+members = ["examples/example", "hocuspocus-rs-ws"]
 
 [profile.dev]
 opt-level = 0
