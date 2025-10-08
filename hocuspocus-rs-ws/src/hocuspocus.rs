@@ -57,7 +57,7 @@ impl Server {
         }
     }
 
-    pub async fn start() -> anyhow::Result<()> {
+    pub async fn start(port: u16) -> anyhow::Result<()> {
         let server = Arc::new(Server {
             docs: Arc::new(DashMap::new()),
             doc_worker_tracker: TaskTracker::new(),
@@ -66,7 +66,7 @@ impl Server {
             authenticator: None,
             cancellation_token: CancellationToken::new(),
             doc_gc: true,
-            port: 3000,
+            port,
         });
         let app = Router::new()
             .route("/", get(ws_handler))
@@ -439,6 +439,5 @@ pub async fn start_server(
     //     port,
     // );
 
-    Server::start().await
+    Server::start(port).await
 }
-
