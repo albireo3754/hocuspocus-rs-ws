@@ -208,8 +208,7 @@ mod test {
         data: Arc<DashMap<String, Vec<u8>>>,
     }
 
-    #[cfg_attr(not(feature = "single-threaded"), async_trait)]
-    #[cfg_attr(feature = "single-threaded", async_trait(?Send))]
+    #[async_trait]
     impl Store for MemoryStore {
         async fn init(&self) -> Result<()> {
             Ok(())

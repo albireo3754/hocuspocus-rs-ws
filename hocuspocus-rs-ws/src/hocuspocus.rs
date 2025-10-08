@@ -26,7 +26,6 @@ use tokio::sync::mpsc::{self, channel};
 use tokio::{net::TcpListener, sync::mpsc::Receiver};
 use tokio_util::{sync::CancellationToken, task::TaskTracker};
 use tracing::{Instrument, Level, info, span};
-use url::Url;
 
 pub type HocuspocusServer = Arc<Server>;
 
@@ -86,23 +85,6 @@ impl Server {
 
         Ok(())
     }
-
-    // pub async fn doc_exists(&self, doc_id: &str) -> bool {
-    //     if self.docs.contains_key(doc_id) {
-    //         return true;
-    //     }
-    //     self.store
-    //         .exists(&format!("{}/data.ysweet", doc_id))
-    //         .await
-    //         .unwrap_or_default()
-    // }
-
-    // pub async fn create_doc(&self) -> Result<String> {
-    //     let doc_id = nanoid::nanoid!();
-    //     self.load_doc(&doc_id).await?;
-    //     tracing::info!(doc_id=?doc_id, "Created doc");
-    //     Ok(doc_id)
-    // }
 
     async fn load_doc(&self, doc_id: &str) -> Result<()> {
         let (send, recv) = channel(1024);
@@ -271,33 +253,6 @@ impl Server {
             .map(|d| d))
     }
 
-    // pub fn check_auth(
-    //     &self,
-    //     auth_header: Option<TypedHeader<headers::Authorization<headers::authorization::Bearer>>>,
-    // ) -> Result<()> {
-    //     if let Some(auth) = &self.authenticator {
-    //         if let Some(TypedHeader(headers::Authorization(bearer))) = auth_header {
-    //             if let Ok(()) =
-    //                 auth.verify_server_token(bearer.token(), current_time_epoch_millis())
-    //             {
-    //                 return Ok(());
-    //             }
-    //         }
-    //         Err((StatusCode::UNAUTHORIZED, anyhow!("Unauthorized.")))?
-    //     } else {
-    //         Ok(())
-    //     }
-    // }
-
-    // pub async fn redact_error_middleware(req: Request, next: Next) -> impl IntoResponse {
-    //     let resp = next.run(req).await;
-    //     if resp.status().is_server_error() || resp.status().is_client_error() {
-    //         // If we should redact errors, copy over only the status code and
-    //         // not the response body.
-    //         return resp.status().into_response();
-    //     }
-    //     resp
-    // }
 }
 
 #[async_trait]

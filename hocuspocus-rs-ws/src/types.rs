@@ -53,9 +53,6 @@ impl SyncType {
     }
 
     pub fn from_u64(value: u64) -> Result<Self, DecodeError> {
-        if value > u8::MAX as u64 {
-            return panic!("Invalid sync type: {}", value);
-        }
         Self::from_u8(value as u8)
     }
 }
