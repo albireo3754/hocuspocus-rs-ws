@@ -1,3 +1,8 @@
+// Portions of this module are adapted from the Hocuspocus JavaScript server
+// (https://github.com/ueberdosis/hocuspocus) and y-sweet
+// (https://github.com/y-sweet/y-sweet), both distributed under the MIT license.
+// Adapted code retains the original license terms.
+
 use crate::doc_connection::DocConnection;
 use crate::sync::awareness::Awareness;
 use crate::sync::Message;

@@ -1,3 +1,8 @@
+// Portions of this module are adapted from the Hocuspocus JavaScript server
+// (https://github.com/ueberdosis/hocuspocus) and y-sweet
+// (https://github.com/y-sweet/y-sweet), both distributed under the MIT license.
+// Adapted code retains the original license terms.
+
 use crate::{
     authenticator::Authenticator, client_connection::{ClientConnection, DocConnectionConfig, DocServer}, doc_sync::DocWithSyncKv, store::{memory::MemoryStore, Store}, sync::awareness::Awareness, sync_kv::SyncKv, types::HocuspocusConfiguration
 };
