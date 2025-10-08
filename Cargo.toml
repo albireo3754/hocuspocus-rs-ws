@@ -1,0 +1,10 @@
+# my_workspace/Cargo.toml
+[workspace]
+resolver = "2"
+members = ["hocuspocus-rs-ws"]
+
+[profile.dev]
+opt-level = 0
+
+[profile.release]
+opt-level = 3

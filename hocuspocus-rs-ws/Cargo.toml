@@ -1,0 +1,46 @@
+[package]
+name = "hocuspocus-rs-ws"
+version = "0.0.1"
+edition = "2024"
+description = "Sans-IO core of the hocuspocus-rs-ws CRDT server."
+license = "MIT"
+repository = "https://github.com/alibreo3754/hocuspocus-rs-ws"
+
+[features]
+default = ["sync"]
+sync = ["yrs/sync"]
+single-threaded = []
+
+[dependencies]
+#async
+tokio = { version = "1.45.0", features = ["full", "tracing"] }
+futures = "0.3"
+futures-util = "0.3.28"
+tokio-stream = { version = "0.1.17", features = ["net"] }
+tokio-util = { version = "0.7.11", features = ["rt"] }
+console-subscriber = "0.4.1"
+
+anyhow = "1.0.72"
+async-trait = "0.1.71"
+bincode = "1.3.3"
+bytes = "1.5.0"
+reqwest = { version = "0.12.5", default-features = false, features = [
+  "rustls-tls-webpki-roots",
+] }
+rusty-s3 = "0.5.0"
+thiserror = "2.0.17"
+time = { version = "0.3.25", features = ["wasm-bindgen"] }
+tracing = "0.1.37"
+yrs = { version = "0.19.2" }
+yrs-kvstore = "0.3.0"
+uuid = { version = "1.17.0", features = ["v4"] }
+dashmap = "6.0.1"
+url = "2.5.7"
+
+axum = { version = "0.8.4", features = ["ws"] }
+
+serde_json = "1.0.108"
+serde = { version = "1.0.193", features = ["derive"] }
+
+[dev-dependencies]
+tokio = { version = "1.29.1", features = ["macros", "rt-multi-thread"] }
