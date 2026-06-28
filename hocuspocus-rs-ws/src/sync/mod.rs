@@ -111,7 +111,7 @@ pub trait Protocol {
             if read_write {
                 Some("read-write".to_owned())
             } else {
-                Some("read-only".to_owned())
+                Some("readonly".to_owned())
             },
             true,
         )

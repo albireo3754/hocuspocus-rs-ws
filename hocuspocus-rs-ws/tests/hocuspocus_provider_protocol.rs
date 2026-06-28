@@ -2,7 +2,10 @@ use anyhow::Result;
 use async_trait::async_trait;
 use hocuspocus_rs_ws::{
     client_connection::{ClientConnection, DocConnectionConfig, DocServer},
-    sync::{AUTH_TOKEN, AUTHENTICATED, MSG_AUTH, Message, SyncMessage, awareness::Awareness},
+    sync::{
+        AUTH_TOKEN, AUTHENTICATED, MSG_AUTH, Message, PERMISSION_DENIED, SyncMessage,
+        awareness::Awareness,
+    },
 };
 use std::{
     collections::HashMap,
@@ -35,6 +38,13 @@ impl TestDocServer {
         Self {
             read_only,
             is_authenticated: true,
+            ..Self::default()
+        }
+    }
+
+    fn unauthenticated() -> Self {
+        Self {
+            is_authenticated: false,
             ..Self::default()
         }
     }
@@ -171,7 +181,27 @@ async fn provider_auth_frame_preserves_readonly_scope() {
 
     let (_, scope) = authenticate(&connection, &mut receiver, "readonly-token").await;
 
-    assert_eq!(scope, "read-only");
+    assert_eq!(scope, "readonly");
+}
+
+#[tokio::test]
+async fn provider_auth_frame_denies_unauthenticated_scope() {
+    let server = Arc::new(TestDocServer::unauthenticated());
+    let (connection, mut receiver) = client_connection(server);
+
+    let err = connection
+        .handle_message(&encode_provider_auth_frame(DOC_NAME, "bad-token"))
+        .await
+        .expect_err("unauthenticated frame should be rejected");
+
+    assert!(err.to_string().contains("permission denied"));
+
+    let (document_name, auth_type, reason) =
+        decode_auth_response(&recv_frame(&mut receiver).await).expect("auth denial should decode");
+
+    assert_eq!(document_name, DOC_NAME);
+    assert_eq!(auth_type, PERMISSION_DENIED);
+    assert_eq!(reason, "permission-denied");
 }
 
 #[tokio::test]
