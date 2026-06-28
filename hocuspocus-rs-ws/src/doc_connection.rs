@@ -203,12 +203,14 @@ impl DocConnection {
                     .await;
 
                 let mut auth_failed = false;
+                let mut read_write = false;
                 if let Ok(config) = config {
                     if config.is_authenticated {
                         if config.read_only {
                             *self.authorization.write().unwrap() = Authorization::ReadOnly;
                         } else {
                             *self.authorization.write().unwrap() = Authorization::Full;
+                            read_write = true;
                         }
                     } else {
                         *self.authorization.write().unwrap() = Authorization::None;
@@ -217,10 +219,7 @@ impl DocConnection {
                 }
 
                 if auth_failed {
-                    tracing::warn!(
-                        "Authentication failed for document: {}",
-                        self.doc_name
-                    );
+                    tracing::warn!("Authentication failed for document: {}", self.doc_name);
 
                     let handle_auth_message =
                         protocol.handle_auth_fail(&self.awareness.read().unwrap());
@@ -231,7 +230,7 @@ impl DocConnection {
                 }
 
                 let handle_auth_message =
-                    protocol.handle_auth_success(&self.awareness.read().unwrap(), true);
+                    protocol.handle_auth_success(&self.awareness.read().unwrap(), read_write);
                 self.send_message(handle_auth_message).await?;
 
                 if !self.awareness.read().unwrap().clients().is_empty() {
