@@ -4,7 +4,13 @@
 // Adapted code retains the original license terms.
 
 use crate::{
-    authenticator::Authenticator, client_connection::{ClientConnection, DocConnectionConfig, DocServer}, doc_sync::DocWithSyncKv, store::{memory::MemoryStore, Store}, sync::awareness::Awareness, sync_kv::SyncKv, types::HocuspocusConfiguration
+    authenticator::Authenticator,
+    client_connection::{ClientConnection, DocConnectionConfig, DocServer},
+    doc_sync::DocWithSyncKv,
+    store::{Store, memory::MemoryStore},
+    sync::awareness::Awareness,
+    sync_kv::SyncKv,
+    types::HocuspocusConfiguration,
 };
 use anyhow::{Result, anyhow};
 use async_trait::async_trait;
@@ -334,10 +340,7 @@ async fn ws_handler(
     ws.on_upgrade(move |socket| handle_websocket_upgrade(socket, hocuspocus))
 }
 
-async fn handle_websocket_upgrade(
-    socket: axum::extract::ws::WebSocket,
-    hocuspocus: Arc<Server>,
-) {
+async fn handle_websocket_upgrade(socket: axum::extract::ws::WebSocket, hocuspocus: Arc<Server>) {
     tracing::debug!("handle_websocket_upgrade : {:?}", socket);
 
     let (_close_tx, _close_rx) = mpsc::channel::<()>(1);

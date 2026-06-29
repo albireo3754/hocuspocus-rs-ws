@@ -1,5 +1,5 @@
-use std::collections::hash_map::Entry;
 use std::collections::HashMap;
+use std::collections::hash_map::Entry;
 use std::fmt::Formatter;
 use std::sync::Arc;
 use thiserror::Error;
@@ -366,7 +366,7 @@ impl Event {
 #[cfg(test)]
 mod test {
     use super::*;
-    use std::sync::mpsc::{channel, Receiver};
+    use std::sync::mpsc::{Receiver, channel};
     use yrs::Doc;
 
     fn update(

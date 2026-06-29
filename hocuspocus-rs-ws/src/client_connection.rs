@@ -5,7 +5,7 @@
 
 use crate::doc_connection::DocConnection;
 use crate::sync::awareness::Awareness;
-use crate::sync::Message;
+use crate::sync::{MSG_PING, MSG_PONG, Message};
 use anyhow::{Result, anyhow};
 use async_trait::async_trait;
 use std::collections::HashMap;
@@ -36,6 +36,31 @@ impl Default for DocConnectionConfig {
 pub struct MessageQueueEntry {
     pub data: Vec<u8>,
     pub document_name: String,
+}
+
+#[derive(Debug, Clone, PartialEq, Eq)]
+struct RoutingKey {
+    raw_key: String,
+    document_name: String,
+    session_id: Option<String>,
+}
+
+impl RoutingKey {
+    fn parse(raw_key: String) -> Self {
+        if let Some((document_name, session_id)) = raw_key.split_once('\0') {
+            return Self {
+                raw_key: raw_key.clone(),
+                document_name: document_name.to_owned(),
+                session_id: Some(session_id.to_owned()),
+            };
+        }
+
+        Self {
+            document_name: raw_key.clone(),
+            raw_key,
+            session_id: None,
+        }
+    }
 }
 
 #[async_trait]
@@ -115,16 +140,27 @@ impl ClientConnection {
             return Err(anyhow!("Connection is closed"));
         }
 
+        if data.len() == 1 {
+            match data[0] {
+                MSG_PING => {
+                    self.send_callback.send(vec![MSG_PONG]).await?;
+                    return Ok(());
+                }
+                MSG_PONG => return Ok(()),
+                _ => {}
+            }
+        }
+
         let mut decoder = DecoderV1::new(Cursor::new(data));
-        let document_name = decoder.read_string()?.to_owned();
+        let routing_key = RoutingKey::parse(decoder.read_string()?.to_owned());
         let msg = Message::decode_v1(decoder.read_to_end()?)?;
 
-        let doc_connection = self.fetch_connection(&document_name).await;
+        let doc_connection = self.fetch_connection_for_routing_key(&routing_key).await;
         match doc_connection {
             Err(err) => {
                 error!(
                     "Failed to fetch connection for document '{}': {}",
-                    document_name, err
+                    routing_key.document_name, err
                 );
                 return Ok(());
             }
@@ -173,26 +209,32 @@ impl ClientConnection {
         Ok(())
     }
 
-    async fn fetch_connection(&self, document_name: &str) -> Result<Arc<DocConnection>> {
+    async fn fetch_connection_for_routing_key(
+        &self,
+        routing_key: &RoutingKey,
+    ) -> Result<Arc<DocConnection>> {
         // For now, we'll create a basic connection without authentication
         // In a real implementation, you'd handle authentication here
         {
             let connections = self.document_connections.lock().unwrap();
-            let doc_connection = connections.get(document_name).cloned();
+            let doc_connection = connections.get(&routing_key.raw_key).cloned();
             if let Some(conn) = doc_connection {
                 return Ok(conn.clone());
             }
         }
 
-        let awareness = Arc::new(RwLock::new(self.doc_server.fetch(document_name).await?))
-            .read()
-            .unwrap()
-            .clone();
+        let awareness = Arc::new(RwLock::new(
+            self.doc_server.fetch(&routing_key.document_name).await?,
+        ))
+        .read()
+        .unwrap()
+        .clone();
 
         let send_callback = self.send_callback.clone();
 
         let connection = Arc::new(DocConnection::new(
-            document_name.to_string(),
+            routing_key.raw_key.clone(),
+            routing_key.document_name.clone(),
             self.doc_server.clone(),
             awareness.clone(),
             send_callback.clone(),
@@ -200,7 +242,7 @@ impl ClientConnection {
 
         {
             let mut connections = self.document_connections.lock().unwrap();
-            connections.insert(document_name.to_string(), connection.clone());
+            connections.insert(routing_key.raw_key.clone(), connection.clone());
         }
 
         Ok(connection)

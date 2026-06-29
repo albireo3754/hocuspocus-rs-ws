@@ -4,9 +4,9 @@
 // Adapted code retains the original license terms.
 
 use crate::{doc_connection::DOC_NAME, store::Store, sync::awareness::Awareness, sync_kv::SyncKv};
-use anyhow::{anyhow, Context, Result};
+use anyhow::{Context, Result, anyhow};
 use std::sync::{Arc, RwLock};
-use yrs::{updates::decoder::Decode, Doc, ReadTxn, StateVector, Subscription, Transact, Update};
+use yrs::{Doc, ReadTxn, StateVector, Subscription, Transact, Update, updates::decoder::Decode};
 use yrs_kvstore::DocOps;
 
 pub struct DocWithSyncKv {

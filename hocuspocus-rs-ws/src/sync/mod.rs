@@ -111,7 +111,7 @@ pub trait Protocol {
             if read_write {
                 Some("read-write".to_owned())
             } else {
-                Some("read-only".to_owned())
+                Some("readonly".to_owned())
             },
             true,
         )
@@ -119,14 +119,8 @@ pub trait Protocol {
 
     /// Handle authorization message. By default, if reason for auth denial has been provided,
     /// send back [Error::PermissionDenied].
-    fn handle_auth_fail(
-        &self,
-        _awareness: &Awareness,
-    ) -> Message {
-        Message::Auth(
-            None,
-            false,
-        )
+    fn handle_auth_fail(&self, _awareness: &Awareness) -> Message {
+        Message::Auth(Some("permission-denied".to_owned()), false)
     }
 
     /// Returns an [AwarenessUpdate] which is a serializable representation of a current `awareness`
@@ -167,12 +161,17 @@ pub const MSG_AWARENESS: u8 = 1;
 pub const MSG_AUTH: u8 = 2;
 /// Tag id for [Message::AwarenessQuery].
 pub const MSG_QUERY_AWARENESS: u8 = 3;
+/// Tag id for [Message::Close].
+pub const MSG_CLOSE: u8 = 7;
 /// Tag id for [Message::SyncStatus].
 pub const MSG_SYNC_STATUS: u8 = 8;
+/// Application-level websocket ping/pong message types used by Hocuspocus v4.
+pub const MSG_PING: u8 = 9;
+pub const MSG_PONG: u8 = 10;
 
-/// authentication result codes
-pub const PERMISSION_DENIED: u8 = 0; // this serverside only, client side use this TOKEN
-pub const PERMISSION_GRANTED: u8 = 1;
+/// authentication message codes, matching @hocuspocus/common AuthMessageType.
+pub const AUTH_TOKEN: u8 = 0;
+pub const PERMISSION_DENIED: u8 = 1;
 pub const AUTHENTICATED: u8 = 2;
 
 #[derive(Debug, Eq, PartialEq)]
@@ -181,6 +180,7 @@ pub enum Message {
     Auth(Option<String>, bool),
     AwarenessQuery,
     Awareness(AwarenessUpdate),
+    Close,
     SyncStatus(bool),
     Custom(u8, Vec<u8>),
 }
@@ -210,6 +210,9 @@ impl Encode for Message {
                 encoder.write_var(MSG_AWARENESS);
                 encoder.write_buf(update.encode_v1())
             }
+            Message::Close => {
+                encoder.write_var(MSG_CLOSE);
+            }
             Message::SyncStatus(connected) => {
                 encoder.write_var(MSG_SYNC_STATUS);
                 encoder.write_var(*connected as u8);
@@ -236,14 +239,21 @@ impl Decode for Message {
                 Ok(Message::Awareness(update))
             }
             MSG_AUTH => {
-                let token = if decoder.read_var::<u8>()? == PERMISSION_DENIED {
-                    Some(decoder.read_string()?.to_string())
-                } else {
-                    None
+                let auth_type: u8 = decoder.read_var()?;
+                let payload = match auth_type {
+                    AUTH_TOKEN | PERMISSION_DENIED | AUTHENTICATED => {
+                        Some(decoder.read_string()?.to_string())
+                    }
+                    _ => None,
                 };
-                Ok(Message::Auth(token, false))
+                Ok(Message::Auth(payload, auth_type == AUTHENTICATED))
             }
             MSG_QUERY_AWARENESS => Ok(Message::AwarenessQuery),
+            MSG_CLOSE => Ok(Message::Close),
+            MSG_SYNC_STATUS => {
+                let synced = decoder.read_var::<u8>()? == 1;
+                Ok(Message::SyncStatus(synced))
+            }
             tag => {
                 let data = decoder.read_buf()?;
                 Ok(Message::Custom(tag, data.to_vec()))
@@ -451,7 +461,7 @@ mod test {
                 .handle_sync_step2(&mut a2, Update::decode_v1(&u).unwrap())
                 .unwrap();
 
-            assert!(result2.is_none());
+            assert_eq!(result2, Some(Message::SyncStatus(true)));
         }
 
         let txt = a2.doc().transact().get_text("test").unwrap();
@@ -476,7 +486,7 @@ mod test {
             .handle_update(&mut a2, Update::decode_v1(&data).unwrap())
             .unwrap();
 
-        assert!(result.is_none());
+        assert_eq!(result, Some(Message::SyncStatus(true)));
 
         let txt = a2.doc().transact().get_text("test").unwrap();
         assert_eq!(txt.get_string(&a2.doc().transact()), "hello".to_owned());

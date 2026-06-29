@@ -6,9 +6,5 @@ use async_trait::async_trait;
 
 #[async_trait]
 pub trait Authenticator: Send + Sync {
-    async fn authenticate(
-        &self,
-        doc_id: &str,
-        token: &str,
-    ) -> Result<DocConnectionConfig>;
+    async fn authenticate(&self, doc_id: &str, token: &str) -> Result<DocConnectionConfig>;
 }

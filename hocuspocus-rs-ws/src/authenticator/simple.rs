@@ -16,11 +16,7 @@ impl SimpleAuthenticator {
 
 #[async_trait]
 impl Authenticator for SimpleAuthenticator {
-    async fn authenticate(
-        &self,
-        _doc_id: &str,
-        _token: &str,
-    ) -> Result<DocConnectionConfig> {
+    async fn authenticate(&self, _doc_id: &str, _token: &str) -> Result<DocConnectionConfig> {
         Ok(DocConnectionConfig {
             is_authenticated: true,
             ..DocConnectionConfig::default()
