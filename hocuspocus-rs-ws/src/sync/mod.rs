@@ -161,8 +161,13 @@ pub const MSG_AWARENESS: u8 = 1;
 pub const MSG_AUTH: u8 = 2;
 /// Tag id for [Message::AwarenessQuery].
 pub const MSG_QUERY_AWARENESS: u8 = 3;
+/// Tag id for [Message::Close].
+pub const MSG_CLOSE: u8 = 7;
 /// Tag id for [Message::SyncStatus].
 pub const MSG_SYNC_STATUS: u8 = 8;
+/// Application-level websocket ping/pong message types used by Hocuspocus v4.
+pub const MSG_PING: u8 = 9;
+pub const MSG_PONG: u8 = 10;
 
 /// authentication message codes, matching @hocuspocus/common AuthMessageType.
 pub const AUTH_TOKEN: u8 = 0;
@@ -175,6 +180,7 @@ pub enum Message {
     Auth(Option<String>, bool),
     AwarenessQuery,
     Awareness(AwarenessUpdate),
+    Close,
     SyncStatus(bool),
     Custom(u8, Vec<u8>),
 }
@@ -203,6 +209,9 @@ impl Encode for Message {
             Message::Awareness(update) => {
                 encoder.write_var(MSG_AWARENESS);
                 encoder.write_buf(update.encode_v1())
+            }
+            Message::Close => {
+                encoder.write_var(MSG_CLOSE);
             }
             Message::SyncStatus(connected) => {
                 encoder.write_var(MSG_SYNC_STATUS);
@@ -240,6 +249,7 @@ impl Decode for Message {
                 Ok(Message::Auth(payload, auth_type == AUTHENTICATED))
             }
             MSG_QUERY_AWARENESS => Ok(Message::AwarenessQuery),
+            MSG_CLOSE => Ok(Message::Close),
             MSG_SYNC_STATUS => {
                 let synced = decoder.read_var::<u8>()? == 1;
                 Ok(Message::SyncStatus(synced))

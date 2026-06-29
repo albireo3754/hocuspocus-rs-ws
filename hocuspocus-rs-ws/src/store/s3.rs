@@ -52,7 +52,9 @@ impl S3Store {
         } else if endpoint.host_str() == Some("localhost") {
             // Since this was the old behavior before we added AWS_S3_USE_PATH_STYLE,
             // we continue to support it, but complain a bit.
-            tracing::warn!("Inferring path-style URLs for localhost for backwards-compatibility. This behavior may change in the future. Set AWS_S3_USE_PATH_STYLE=true to ensure that path-style URLs are used.");
+            tracing::warn!(
+                "Inferring path-style URLs for localhost for backwards-compatibility. This behavior may change in the future. Set AWS_S3_USE_PATH_STYLE=true to ensure that path-style URLs are used."
+            );
             rusty_s3::UrlStyle::Path
         } else {
             rusty_s3::UrlStyle::VirtualHost
@@ -133,7 +135,7 @@ impl S3Store {
             Err(StoreError::DoesNotExist(_)) => {
                 return Err(StoreError::BucketDoesNotExist(
                     "Bucket does not exist.".to_string(),
-                ))
+                ));
             }
             Err(e) => return Err(e),
             Ok(response) => response,

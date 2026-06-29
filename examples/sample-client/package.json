@@ -7,7 +7,9 @@
     "dev": "bunx --bun vite",
     "build": "bunx --bun vite build",
     "preview": "bunx --bun vite preview",
-    "check": "bunx --bun svelte-check --tsconfig ./tsconfig.app.json && bunx --bun tsc -p tsconfig.node.json"
+    "check": "bunx --bun svelte-check --tsconfig ./tsconfig.app.json && bunx --bun tsc -p tsconfig.node.json && bunx --bun tsc -p tsconfig.e2e.json",
+    "e2e:hocuspocus": "bun run scripts/hocuspocus-e2e.ts",
+    "e2e:hocuspocus:server": "bun run scripts/hocuspocus-e2e.ts --spawn-server"
   },
   "devDependencies": {
     "@sveltejs/vite-plugin-svelte": "^6.2.1",
@@ -19,7 +21,7 @@
     "vite": "^7.1.7"
   },
   "dependencies": {
-    "@hocuspocus/provider": "^3.2.4",
+    "@hocuspocus/provider": "^4.3.0",
     "@tiptap/core": "^3.6.5",
     "@tiptap/extension-bubble-menu": "^3.6.5",
     "@tiptap/extension-collaboration": "^3.6.5",

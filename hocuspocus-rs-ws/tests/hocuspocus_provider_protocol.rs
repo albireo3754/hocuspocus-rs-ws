@@ -3,8 +3,8 @@ use async_trait::async_trait;
 use hocuspocus_rs_ws::{
     client_connection::{ClientConnection, DocConnectionConfig, DocServer},
     sync::{
-        AUTH_TOKEN, AUTHENTICATED, MSG_AUTH, Message, PERMISSION_DENIED, SyncMessage,
-        awareness::Awareness,
+        AUTH_TOKEN, AUTHENTICATED, MSG_AUTH, MSG_PING, MSG_PONG, Message, PERMISSION_DENIED,
+        SyncMessage, awareness::Awareness,
     },
 };
 use std::{
@@ -24,6 +24,8 @@ use yrs::{
 };
 
 const DOC_NAME: &str = "hocuspocus-test";
+const HOCUSPOCUS_V4_VERSION: &str = "4.0.0";
+const SESSION_ID: &str = "session-42";
 
 #[derive(Default)]
 struct TestDocServer {
@@ -61,6 +63,10 @@ impl TestDocServer {
     fn auth_calls(&self) -> Vec<(String, String)> {
         self.auth_calls.lock().unwrap().clone()
     }
+
+    fn fetch_calls(&self) -> Vec<String> {
+        self.docs.lock().unwrap().keys().cloned().collect()
+    }
 }
 
 #[async_trait]
@@ -94,12 +100,33 @@ fn encode_frame(document_name: &str, message: Message) -> Vec<u8> {
 }
 
 fn encode_provider_auth_frame(document_name: &str, token: &str) -> Vec<u8> {
+    encode_provider_auth_frame_with_version(document_name, token, HOCUSPOCUS_V4_VERSION)
+}
+
+fn encode_provider_auth_frame_with_version(
+    document_name: &str,
+    token: &str,
+    provider_version: &str,
+) -> Vec<u8> {
     let mut encoder = EncoderV1::new();
     encoder.write_string(document_name);
     encoder.write_var(MSG_AUTH);
     encoder.write_var(AUTH_TOKEN);
     encoder.write_string(token);
-    encoder.write_string("3.2.4");
+    encoder.write_string(provider_version);
+    encoder.to_vec()
+}
+
+fn session_routing_key(document_name: &str, session_id: &str) -> String {
+    format!("{document_name}\0{session_id}")
+}
+
+fn encode_provider_auth_frame_without_version(document_name: &str, token: &str) -> Vec<u8> {
+    let mut encoder = EncoderV1::new();
+    encoder.write_string(document_name);
+    encoder.write_var(MSG_AUTH);
+    encoder.write_var(AUTH_TOKEN);
+    encoder.write_string(token);
     encoder.to_vec()
 }
 
@@ -142,22 +169,36 @@ async fn authenticate(
     receiver: &mut mpsc::Receiver<Vec<u8>>,
     token: &str,
 ) -> (String, String) {
+    authenticate_with_document_name(connection, receiver, DOC_NAME, token, "3.2.4").await
+}
+
+async fn authenticate_with_document_name(
+    connection: &ClientConnection,
+    receiver: &mut mpsc::Receiver<Vec<u8>>,
+    document_name: &str,
+    token: &str,
+    provider_version: &str,
+) -> (String, String) {
     connection
-        .handle_message(&encode_provider_auth_frame(DOC_NAME, token))
+        .handle_message(&encode_provider_auth_frame_with_version(
+            document_name,
+            token,
+            provider_version,
+        ))
         .await
         .expect("auth frame should be handled");
 
-    let (document_name, auth_type, scope) =
+    let (response_document_name, auth_type, scope) =
         decode_auth_response(&recv_frame(receiver).await).expect("auth response should decode");
-    assert_eq!(document_name, DOC_NAME);
+    assert_eq!(response_document_name, document_name);
     assert_eq!(auth_type, AUTHENTICATED);
 
-    let (document_name, message) =
+    let (sync_document_name, message) =
         decode_frame(&recv_frame(receiver).await).expect("initial sync step should decode");
-    assert_eq!(document_name, DOC_NAME);
+    assert_eq!(sync_document_name, document_name);
     assert!(matches!(message, Message::Sync(SyncMessage::SyncStep1(_))));
 
-    (document_name, scope)
+    (response_document_name, scope)
 }
 
 #[tokio::test]
@@ -172,6 +213,156 @@ async fn provider_auth_frame_returns_hocuspocus_authenticated_scope() {
         server.auth_calls(),
         vec![(DOC_NAME.to_owned(), "writer-token".to_owned())]
     );
+}
+
+#[tokio::test]
+async fn provider_auth_frame_accepts_trailing_provider_version() {
+    let server = Arc::new(TestDocServer::new(false));
+    let (connection, mut receiver) = client_connection(server.clone());
+
+    connection
+        .handle_message(&encode_provider_auth_frame(DOC_NAME, "writer-token"))
+        .await
+        .expect("auth frame with trailing provider version should be handled");
+
+    let (document_name, auth_type, scope) = decode_auth_response(&recv_frame(&mut receiver).await)
+        .expect("auth response should decode");
+
+    assert_eq!(document_name, DOC_NAME);
+    assert_eq!(auth_type, AUTHENTICATED);
+    assert_eq!(scope, "read-write");
+    assert_eq!(
+        server.auth_calls(),
+        vec![(DOC_NAME.to_owned(), "writer-token".to_owned())]
+    );
+}
+
+#[tokio::test]
+async fn provider_auth_frame_accepts_missing_provider_version() {
+    let server = Arc::new(TestDocServer::new(false));
+    let (connection, mut receiver) = client_connection(server.clone());
+
+    connection
+        .handle_message(&encode_provider_auth_frame_without_version(
+            DOC_NAME,
+            "writer-token",
+        ))
+        .await
+        .expect("auth frame without trailing provider version should be handled");
+
+    let (document_name, auth_type, scope) = decode_auth_response(&recv_frame(&mut receiver).await)
+        .expect("auth response should decode");
+
+    assert_eq!(document_name, DOC_NAME);
+    assert_eq!(auth_type, AUTHENTICATED);
+    assert_eq!(scope, "read-write");
+    assert_eq!(
+        server.auth_calls(),
+        vec![(DOC_NAME.to_owned(), "writer-token".to_owned())]
+    );
+}
+
+#[tokio::test]
+async fn provider_session_routing_key_authenticates_plain_document_name() {
+    let raw_routing_key = session_routing_key(DOC_NAME, SESSION_ID);
+    let server = Arc::new(TestDocServer::new(false));
+    let (connection, mut receiver) = client_connection(server.clone());
+
+    connection
+        .handle_message(&encode_provider_auth_frame(
+            &raw_routing_key,
+            "writer-token",
+        ))
+        .await
+        .expect("auth frame with session routing key should be handled");
+
+    let (document_name, auth_type, scope) = decode_auth_response(&recv_frame(&mut receiver).await)
+        .expect("auth response should decode");
+
+    assert_eq!(document_name, raw_routing_key);
+    assert_eq!(auth_type, AUTHENTICATED);
+    assert_eq!(scope, "read-write");
+    assert_eq!(server.fetch_calls(), vec![DOC_NAME.to_owned()]);
+    assert_eq!(
+        server.auth_calls(),
+        vec![(DOC_NAME.to_owned(), "writer-token".to_owned())]
+    );
+}
+
+#[tokio::test]
+async fn provider_session_routing_key_sync_response_uses_raw_routing_key() {
+    let raw_routing_key = session_routing_key(DOC_NAME, SESSION_ID);
+    let server = Arc::new(TestDocServer::new(false));
+    let (connection, mut receiver) = client_connection(server);
+
+    connection
+        .handle_message(&encode_provider_auth_frame(
+            &raw_routing_key,
+            "writer-token",
+        ))
+        .await
+        .expect("auth frame with session routing key should be handled");
+    recv_frame(&mut receiver).await;
+
+    let (document_name, message) =
+        decode_frame(&recv_frame(&mut receiver).await).expect("initial sync step should decode");
+
+    assert_eq!(document_name, raw_routing_key);
+    assert!(matches!(message, Message::Sync(SyncMessage::SyncStep1(_))));
+}
+
+#[tokio::test]
+async fn provider_documentless_ping_frame_returns_pong() {
+    let server = Arc::new(TestDocServer::new(false));
+    let (connection, mut receiver) = client_connection(server.clone());
+
+    connection
+        .handle_message(&[MSG_PING])
+        .await
+        .expect("documentless ping frame should be handled without parsing a document name");
+
+    let pong = recv_frame(&mut receiver).await;
+
+    assert_eq!(pong, vec![MSG_PONG]);
+    assert!(server.fetch_calls().is_empty());
+    assert!(server.auth_calls().is_empty());
+}
+
+#[tokio::test]
+async fn provider_documentless_pong_frame_is_accepted_without_document_lookup() {
+    let server = Arc::new(TestDocServer::new(false));
+    let (connection, mut receiver) = client_connection(server.clone());
+
+    connection
+        .handle_message(&[MSG_PONG])
+        .await
+        .expect("documentless pong frame should be handled without parsing a document name");
+
+    assert!(
+        timeout(Duration::from_millis(100), receiver.recv())
+            .await
+            .is_err()
+    );
+    assert!(server.fetch_calls().is_empty());
+    assert!(server.auth_calls().is_empty());
+}
+
+#[tokio::test]
+async fn provider_v4_close_frame_is_accepted_without_payload() {
+    let server = Arc::new(TestDocServer::new(false));
+    let (connection, mut receiver) = client_connection(server.clone());
+
+    connection
+        .handle_message(&encode_frame(DOC_NAME, Message::Close))
+        .await
+        .expect("close frame without payload should be handled");
+
+    assert!(
+        timeout(Duration::from_millis(100), receiver.recv())
+            .await
+            .is_err()
+    );
+    assert_eq!(server.fetch_calls(), vec![DOC_NAME.to_owned()]);
 }
 
 #[tokio::test]

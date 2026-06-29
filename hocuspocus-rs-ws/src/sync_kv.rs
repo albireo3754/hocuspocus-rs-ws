@@ -10,8 +10,8 @@ use std::{
     convert::Infallible,
     ops::Bound,
     sync::{
-        atomic::{AtomicBool, Ordering},
         Arc, Mutex,
+        atomic::{AtomicBool, Ordering},
     },
 };
 use yrs_kvstore::{DocOps, KVEntry};

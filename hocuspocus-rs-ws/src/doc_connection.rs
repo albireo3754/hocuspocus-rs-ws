@@ -29,6 +29,7 @@ pub const DOC_NAME: &str = "doc";
 const SYNC_STATUS_MESSAGE: u8 = 102;
 
 pub struct DocConnection<T: Protocol = DefaultProtocol> {
+    raw_key: String,
     doc_name: String,
     doc_server: Arc<dyn DocServer>,
     authorization: Arc<RwLock<Authorization>>,
@@ -49,15 +50,17 @@ pub struct DocConnection<T: Protocol = DefaultProtocol> {
 
 impl DocConnection {
     pub fn new(
+        raw_key: String,
         doc_name: String,
         doc_server: Arc<dyn DocServer>,
         awareness: Arc<RwLock<Awareness>>,
         callback: mpsc::Sender<Vec<u8>>,
     ) -> Self {
-        Self::new_inner(doc_name, doc_server, awareness, callback)
+        Self::new_inner(raw_key, doc_name, doc_server, awareness, callback)
     }
 
     pub fn new_inner(
+        raw_key: String,
         doc_name: String,
         doc_server: Arc<dyn DocServer>,
         awareness: Arc<RwLock<Awareness>>,
@@ -71,7 +74,7 @@ impl DocConnection {
             let doc_subscription = {
                 let doc = awareness.doc();
                 let callback = callback.clone();
-                let doc_name = doc_name.clone();
+                let raw_key = raw_key.clone();
                 let closed = closed.clone();
                 doc.observe_update_v1(move |_, event| {
                     if closed.get().is_some() {
@@ -79,7 +82,7 @@ impl DocConnection {
                     }
                     // https://github.com/y-crdt/y-sync/blob/56958e83acfd1f3c09f5dd67cf23c9c72f000707/src/net/broadcast.rs#L47-L52
                     let mut encoder = EncoderV1::new();
-                    encoder.write_string(doc_name.as_str());
+                    encoder.write_string(raw_key.as_str());
                     encoder.write_var(MSG_SYNC);
                     encoder.write_var(MSG_SYNC_UPDATE);
                     encoder.write_buf(&event.update);
@@ -91,7 +94,7 @@ impl DocConnection {
 
             let callback = callback.clone();
             let closed = closed.clone();
-            let doc_name = doc_name.clone();
+            let raw_key = raw_key.clone();
             let awareness_subscription = awareness.on_update(move |awareness, e| {
                 if closed.get().is_some() {
                     return;
@@ -110,7 +113,7 @@ impl DocConnection {
 
                 if let Ok(u) = awareness.update_with_clients(changed) {
                     let mut encoder = EncoderV1::new();
-                    encoder.write_string(doc_name.as_str());
+                    encoder.write_string(raw_key.as_str());
                     Message::Awareness(u).encode(&mut encoder);
                     let msg = encoder.to_vec();
                     callback.try_send(msg).expect("todo err handling");
@@ -125,6 +128,7 @@ impl DocConnection {
         // https://github.com/y-crdt/y-sync/blob/56958e83acfd1f3c09f5dd67cf23c9c72f000707/src/sync.rs#L45-L54
 
         Self {
+            raw_key,
             doc_name,
             doc_server,
             awareness,
@@ -147,7 +151,7 @@ impl DocConnection {
 
     pub async fn send_message(&self, msg: Message) -> Result<(), anyhow::Error> {
         let mut encoder = EncoderV1::new();
-        encoder.write_string(self.doc_name.as_str());
+        encoder.write_string(self.raw_key.as_str());
         msg.encode(&mut encoder);
         self.send_raw(encoder.to_vec()).await
     }
@@ -264,6 +268,11 @@ impl DocConnection {
             }
             Message::SyncStatus(synced) => {
                 debug!("Client sync status changed: synced={}", synced);
+
+                Ok(None)
+            }
+            Message::Close => {
+                debug!("Client requested document connection close");
 
                 Ok(None)
             }
